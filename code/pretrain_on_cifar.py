@@ -26,7 +26,19 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 
 print('==> Building model..')
-net = ResNeXt29_2x64d()
+# net = VGG('VGG19')
+# net = ResNet18()
+net = PreActResNet18()
+# net = GoogLeNet()
+# net = DenseNet121()
+# net = ResNeXt29_2x64d()
+# net = MobileNet()
+# net = MobileNetV2()
+# net = DPN92()
+# net = ShuffleNetG2()
+# net = SENet18()
+# net = ShuffleNetV2(1)
+# net = EfficientNetB0()
 net = net.to('cuda:0')
 net = torch.nn.DataParallel(net, device_ids=[0, 1,2,3,4,5,6,7])
 cudnn.benchmark = True
@@ -77,7 +89,7 @@ for epoch in tqdm(range(350)):  # loop over the dataset multiple times
 
     with open('../models/resnetxt_acc_'+str(int(100*correct / total))+'.pkl', 'wb') as f:
         pickle.dump(net, f)
-
+    # torch.save(net.module.state_dict(), PATH)
 print('Finished Training')
 
 class_correct = list(0. for i in range(10))

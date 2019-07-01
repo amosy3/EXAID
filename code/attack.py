@@ -47,18 +47,18 @@ def get_pretrain_model(model_name):
 
     with open(model_path, 'rb') as f:
         net = pickle.load(f)
-    return net
+    return net.module
 
 
 def get_adversary(adversary_name, net):
     if adversary_name == 'FGSM':
-        adversary = FGSM(net, targeted=False, num_classes=10)
+        adversary = FGSM(net, targeted=False)
 
     if adversary_name == 'JSMA':
         adversary = JSMA(net, targeted=False, num_classes=10)
 
     if adversary_name == 'PGD':
-        adversary = PGDAttack(net, targeted=False, num_classes=10)
+        adversary = PGDAttack(net, targeted=False)
 
     if adversary_name == 'CW':
         adversary = CarliniWagnerL2Attack(net, targeted=False, num_classes=10)
@@ -69,6 +69,7 @@ def get_adversary(adversary_name, net):
     with open(model_path, 'rb') as f:
         net = pickle.load(f)
     return net
+
 
 def print_net_score(net, testloader):
     correct = 0
@@ -85,13 +86,17 @@ def print_net_score(net, testloader):
     print('Accuracy of the network on test set: %d %%' % (100 * correct / total))
 
 
-parser = argparse.ArgumentParser(description='This script create adversarial examples. '
-                                             'Please choose dataset, model, and attack to apply')
-parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10'], type=str, help='dataset')
-parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
-parser.add_argument('attack', action='store',choices=['FGSM', 'JSMA', 'PGD', 'CW'], type=str, help='attack')
-args = parser.parse_args()
+def get_parsed_args():
+    parser = argparse.ArgumentParser(description='This script create adversarial examples. '
+                                                 'Please choose dataset, model, and attack to apply')
+    parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10'], type=str, help='dataset')
+    parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
+    parser.add_argument('attack', action='store',choices=['FGSM', 'JSMA', 'PGD', 'CW'], type=str, help='attack')
+    args = parser.parse_args()
+    return args
 
+
+args = get_parsed_args()
 testloader = get_test_loader(args.dataset)
 net = get_pretrain_model(args.model)
 adversary = get_adversary(args.attack, net)
@@ -114,13 +119,13 @@ for data in tqdm(testloader):
     wrong = true_label!=estimate_class
     print(wrong)
     
-    adversarial['X'] = np.concatenate((adversarial['X'],adv_untargeted[wrong].cpu()))
+    adversarial['X'] = np.concatenate((adversarial['X'],adv_untargeted[wrong].detach().cpu()))
     adversarial['label'] = np.concatenate((adversarial['label'],labels[wrong]))
     adversarial['net_pred'] = np.concatenate((adversarial['net_pred'],estimate_class[wrong].cpu()))
     adversarial['softmax_layer'] = np.concatenate((adversarial['softmax_layer'], softmax_layer[wrong].detach().cpu()))
     
 
-adversarial_path = '../data/%s/%s/' %(args.dataset, args.model)
+adversarial_path = '../adversarial/%s/%s/' %(args.dataset, args.model)
 create_dir_if_not_exist(adversarial_path)
 with open(adversarial_path + args.attack + '.pkl', 'wb') as f:
     pickle.dump(adversarial,f)
