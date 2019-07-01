@@ -14,6 +14,13 @@ from advertorch_examples.utils import _imshow
 from advertorch.attacks import CarliniWagnerL2Attack, PGDAttack, FGSM, JSMA
 import datetime
 import argparse
+import os
+
+
+def create_dir_if_not_exist(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
 
 def get_test_loader(dataset):
     if dataset == 'MNIST':
@@ -36,7 +43,7 @@ def get_pretrain_model(model_name):
         model_path = '../models/googlenet_acc_84.pkl'
 
     if model_name == 'resnet':
-        model_path = '../models/resnet_acc_90.pkl'
+        model_path = '../models/resnetxt_acc_87.pkl'
 
     with open(model_path, 'rb') as f:
         net = pickle.load(f)
@@ -113,6 +120,7 @@ for data in tqdm(testloader):
     adversarial['softmax_layer'] = np.concatenate((adversarial['softmax_layer'], softmax_layer[wrong].detach().cpu()))
     
 
-adversarial_path = '../data/%s/%s/%s.pkl' %(args.dataset, args.model, args.attack)
-with open(adversarial_path, 'wb') as f:
+adversarial_path = '../data/%s/%s/' %(args.dataset, args.model)
+create_dir_if_not_exist(adversarial_path)
+with open(adversarial_path + args.attack + '.pkl', 'wb') as f:
     pickle.dump(adversarial,f)

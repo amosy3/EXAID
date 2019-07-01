@@ -16,10 +16,10 @@ transform = transforms.Compose(
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=20)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=20)
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False, num_workers=20)
+testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=20)
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -74,10 +74,11 @@ for epoch in tqdm(range(350)):  # loop over the dataset multiple times
             correct += (predicted == labels).sum().item()
 
     print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
-print('Finished Training')
 
-with open('../models/resnetxt_acc_'+str(int(100*correct / total))+'.pkl', 'wb') as f:
-    pickle.dump(net, f)
+    with open('../models/resnetxt_acc_'+str(int(100*correct / total))+'.pkl', 'wb') as f:
+        pickle.dump(net, f)
+
+print('Finished Training')
 
 class_correct = list(0. for i in range(10))
 class_total = list(0. for i in range(10))
