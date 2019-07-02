@@ -10,6 +10,7 @@ from tqdm import tqdm
 from models import *
 import torch.backends.cudnn as cudnn
 import pickle
+from torch.optim.lr_scheduler import StepLR
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -45,15 +46,10 @@ cudnn.benchmark = True
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.9)
-
+scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
 
 for epoch in tqdm(range(350)):  # loop over the dataset multiple times
-    if epoch==150:
-        optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
-
-    if epoch==250:
-        optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-
+    scheduler.step()
     for i, data in enumerate(trainloader, 0):
         # get the inputs
         inputs, labels = data
@@ -87,7 +83,7 @@ for epoch in tqdm(range(350)):  # loop over the dataset multiple times
 
     print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
 
-    with open('../models/resnetxt_acc_'+str(int(100*correct / total))+'.pkl', 'wb') as f:
+    with open('../models/resnet18_acc_'+str(int(100*correct / total))+'.pkl', 'wb') as f:
         pickle.dump(net, f)
     # torch.save(net.module.state_dict(), PATH)
 print('Finished Training')

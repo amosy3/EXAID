@@ -101,7 +101,7 @@ testloader = get_test_loader(args.dataset)
 net = get_pretrain_model(args.model)
 adversary = get_adversary(args.attack, net)
 
-print_net_score(net, testloader)
+print_net_score(net, testloader)  # ensure the net loaded as expected
 
 adversarial= dict()
 adversarial['X'] = np.empty(shape=(0,3,32,32))
