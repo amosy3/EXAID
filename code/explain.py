@@ -132,4 +132,7 @@ print_net_score(net, testloader)  # ensure the net loaded as expected
 
 e = get_deep_explainer(trainloader, net)
 create_adversarial_explanations(adversarial, e, args.dataset,args.model,args.attack)
-create_natural_explanations(trainloader, e, args.dataset, args.model)
+print('Done explain adversarial examples!')
+
+if not os.path.exists('../explanations/%s/%s/natural.pkl' % (args.dataset, args.model)):
+    create_natural_explanations(trainloader, e, args.dataset, args.model)

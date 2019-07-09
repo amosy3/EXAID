@@ -55,7 +55,7 @@ def get_adversary(adversary_name, net):
         adversary = FGSM(net, targeted=False)
 
     if adversary_name == 'JSMA':
-        adversary = JSMA(net, targeted=False, num_classes=10)
+        adversary = JSMA(net, num_classes=10)
 
     if adversary_name == 'PGD':
         adversary = PGDAttack(net, targeted=False)
