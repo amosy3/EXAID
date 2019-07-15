@@ -80,7 +80,10 @@ def print_net_score(net, testloader):
 
 
 def get_xai_channels(X,e):
-    data = (torch.from_numpy(X)).to('cuda')
+    if type(X).__module__ == np.__name__:
+        data = (torch.from_numpy(X)).to('cuda')
+    else:
+        data = X
     shap_values = e.shap_values(data.float())
     return np.transpose(np.array(shap_values),(1,0,2,3,4))
 
@@ -103,8 +106,10 @@ def create_natural_explanations(trainloader, e, dataset, model):
     natural = dict()
     if dataset == 'MNIST':
         natural['X'] = np.empty(shape=(0, 1, 28, 28))
+        natural['shap'] = np.empty(shape=(0, 10, 1, 28, 28))
     if dataset == 'CIFAR10':
         natural['X'] = np.empty(shape=(0, 3, 32, 32))
+        natural['shap'] = np.empty(shape=(0, 10, 3, 32, 32))
     natural['label'] = np.array(())
     natural['net_pred'] = np.array(())
     natural['softmax_layer'] = np.empty(shape=(0, 10))
@@ -114,25 +119,24 @@ def create_natural_explanations(trainloader, e, dataset, model):
         images = images.to('cuda')
         softmax_layer = net(images)
         estimate_prob, estimate_class = torch.max(softmax_layer.data, 1)
+        shap_vaules = get_xai_channels(images, e)
 
         natural['X'] = np.concatenate((natural['X'], images.cpu()))
         natural['label'] = np.concatenate((natural['label'], labels))
         natural['net_pred'] = np.concatenate((natural['net_pred'], estimate_class.cpu()))
         natural['softmax_layer'] = np.concatenate((natural['softmax_layer'], softmax_layer.detach().cpu()))
+        natural['shap'] = np.concatenate((natural['shap'], shap_vaules))
     with open('../explanations/%s/%s/natural.pkl' % (dataset, model), 'wb') as f:
         pickle.dump(natural, f)
 
 args = get_parsed_args()
 trainloader, testloader = get_loaders(args.dataset)
 net = get_pretrain_model(args.model)
-# net.eval()
 adversarial = get_adversarial(args.dataset,args.model,args.attack)
-
 print_net_score(net, testloader)  # ensure the net loaded as expected
-
 e = get_deep_explainer(trainloader, net)
 create_adversarial_explanations(adversarial, e, args.dataset,args.model,args.attack)
 print('Done explain adversarial examples!')
 
 if not os.path.exists('../explanations/%s/%s/natural.pkl' % (args.dataset, args.model)):
-    create_natural_explanations(trainloader, e, args.dataset, args.model)
+    create_natural_explanations(testloader, e, args.dataset, args.model)
