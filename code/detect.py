@@ -99,50 +99,142 @@ def train_and_predict(model, X_train, y_train, X_test, y_test, filename='tmp'):
     return plot_roc(y_test, pred, filename), history
 
 
+def explanation2train_test(all_exp, mode='all_adv_in_test', channels_convection='WHC'):
+    # 0-good explanation, 1-bad explanation
+    y = np.array([0] * all_exp['good'].shape[0])
+    good_exp_train, good_exp_test, _, _ = train_test_split(all_exp['good'], y, test_size=0.3)
+    data = dict()
+    if mode == 'all_adv_in_test':
+        # Do not enter adversarial to train! auc for each attack
+        data['X_train'] = np.concatenate((all_exp['wrong'], all_exp['weak'], good_exp_train))
+        data['y_train'] = np.array(
+            [1] * (all_exp['wrong'].shape[0] + all_exp['weak'].shape[0]) + [0] * good_exp_train.shape[0])
+
+        data['X_test_FGSM'] = np.concatenate((all_exp['adv_FGSM'], good_exp_test))
+        data['y_test_FGSM'] = np.array([1] * all_exp['adv_FGSM'].shape[0] + [0] * good_exp_test.shape[0])
+
+        data['X_test_PGD'] = np.concatenate((all_exp['adv_PGD'], good_exp_test))
+        data['y_test_PGD'] = np.array([1] * all_exp['adv_PGD'].shape[0] + [0] * good_exp_test.shape[0])
+
+        data['X_test_CW'] = np.concatenate((all_exp['adv_CW'], good_exp_test))
+        data['y_test_CW'] = np.array([1] * all_exp['adv_CW'].shape[0] + [0] * good_exp_test.shape[0])
+
+        if channels_convection == 'WHC':  # change CWH -> WHC - for keras
+            data['X_train'] = np.transpose(data['X_train'], (0, 2, 3, 1))
+            data['X_test_FGSM'] = np.transpose(data['X_test_FGSM'], (0, 2, 3, 1))
+            data['X_test_PGD'] = np.transpose(data['X_test_PGD'], (0, 2, 3, 1))
+            data['X_test_CW'] = np.transpose(data['X_test_CW'], (0, 2, 3, 1))
+
+    if mode == 'leave_FGSM_out':
+        # Do not enter adversarial to train! auc for each attack
+        data['X_train'] = np.concatenate((all_exp['wrong'], all_exp['weak'], all_exp['adv_PGD'],
+                                          all_exp['adv_CW'], good_exp_train))
+        data['y_train'] = np.array([1] * (all_exp['wrong'].shape[0] + all_exp['weak'].shape[0] +
+                                          all_exp['adv_PGD'].shape[0] + all_exp['adv_CW'].shape[0]) +
+                                   [0] * good_exp_train.shape[0])
+
+        data['X_test_FGSM'] = np.concatenate((all_exp['adv_FGSM'], good_exp_test))
+        data['y_test_FGSM'] = np.array([1] * all_exp['adv_FGSM'].shape[0] + [0] * good_exp_test.shape[0])
+
+        if channels_convection == 'WHC':  # change CWH -> WHC - for keras
+            data['X_train'] = np.transpose(data['X_train'], (0, 2, 3, 1))
+            data['X_test_FGSM'] = np.transpose(data['X_test_FGSM'], (0, 2, 3, 1))
+
+    if mode == 'leave_PGD_out':
+        # Do not enter adversarial to train! auc for each attack
+        data['X_train'] = np.concatenate((all_exp['wrong'], all_exp['weak'], all_exp['adv_FGSM'],
+                                          all_exp['adv_CW'], good_exp_train))
+        data['y_train'] = np.array([1] * (all_exp['wrong'].shape[0] + all_exp['weak'].shape[0] +
+                                          all_exp['adv_FGSM'].shape[0] + all_exp['adv_CW'].shape[0]) +
+                                   [0] * good_exp_train.shape[0])
+
+        data['X_test_PGD'] = np.concatenate((all_exp['adv_PGD'], good_exp_test))
+        data['y_test_PGD'] = np.array([1] * all_exp['adv_PGD'].shape[0] + [0] * good_exp_test.shape[0])
+
+        if channels_convection == 'WHC':  # change CWH -> WHC - for keras
+            data['X_train'] = np.transpose(data['X_train'], (0, 2, 3, 1))
+            data['X_test_PGD'] = np.transpose(data['X_test_PGD'], (0, 2, 3, 1))
+
+    if mode == 'leave_CW_out':
+        # Do not enter adversarial to train! auc for each attack
+        data['X_train'] = np.concatenate((all_exp['wrong'], all_exp['weak'], all_exp['adv_FGSM'],
+                                          all_exp['adv_PGD'], good_exp_train))
+        data['y_train'] = np.array([1] * (all_exp['wrong'].shape[0] + all_exp['weak'].shape[0] +
+                                          all_exp['adv_FGSM'].shape[0] + all_exp['adv_PGD'].shape[0]) +
+                                   [0] * good_exp_train.shape[0])
+
+        data['X_test_CW'] = np.concatenate((all_exp['adv_CW'], good_exp_test))
+        data['y_test_CW'] = np.array([1] * all_exp['adv_CW'].shape[0] + [0] * good_exp_test.shape[0])
+
+        if channels_convection == 'WHC':  # change CWH -> WHC - for keras
+            data['X_train'] = np.transpose(data['X_train'], (0, 2, 3, 1))
+            data['X_test_CW'] = np.transpose(data['X_test_CW'], (0, 2, 3, 1))
+
+    if mode == 'split_all':
+        # Do not enter adversarial to train! auc for each attack
+
+        y = np.array([0] * all_exp['adv_FGSM'].shape[0])
+        FGSM_train, FGSM_test, _, _ = train_test_split(all_exp['adv_FGSM'], y, test_size=0.3)
+
+        y = np.array([0] * all_exp['adv_PGD'].shape[0])
+        PGD_train, PGD_test, _, _ = train_test_split(all_exp['adv_PGD'], y, test_size=0.3)
+
+        y = np.array([0] * all_exp['adv_CW'].shape[0])
+        CW_train, CW_test, _, _ = train_test_split(all_exp['adv_CW'], y, test_size=0.3)
+
+        data['X_train'] = np.concatenate((all_exp['wrong'], all_exp['weak'],
+                                          FGSM_train, PGD_train, CW_train, good_exp_train))
+        data['y_train'] = np.array([1] * (all_exp['wrong'].shape[0] + all_exp['weak'].shape[0] +
+                                          FGSM_train.shape[0] + PGD_train.shape[0] + CW_train.shape[0]) +
+                                   [0] * good_exp_train.shape[0])
+
+        data['X_test'] = np.concatenate((FGSM_test, PGD_test, CW_test, good_exp_test))
+        data['y_test'] = np.array([1] * (FGSM_test.shape[0] + PGD_test.shape[0] + CW_test.shape[0]) +
+                                  [0] * good_exp_test.shape[0])
+
+        if channels_convection == 'WHC':  # change CWH -> WHC - for keras
+            data['X_train'] = np.transpose(data['X_train'], (0, 2, 3, 1))
+            data['X_test'] = np.transpose(data['X_test'], (0, 2, 3, 1))
+    return data
+
+
 args = get_parsed_args()
 natural, adversarial_FGSM, adversarial_PGD, adversarial_CW = load_data(args.dataset,args.model)
 
-n=4
+n = 4
 
-good_exp = get_explained_image(natural, n, expanation_type='good')
-weak_exp = get_explained_image(natural, n, expanation_type='weak')
-adv_FGSM_exp = get_explained_image(adversarial_FGSM, n, expanation_type='adversarial')
-adv_PGD_exp = get_explained_image(adversarial_PGD, n, expanation_type='adversarial')
-adv_CW_exp = get_explained_image(adversarial_CW, n, expanation_type='adversarial')
-wrong_exp = get_explained_image(natural, n, expanation_type='wrong')
-
-# 0-good explanation, 1-bad explanation
-y = np.array([0]*good_exp.shape[0])
-good_exp_train, good_exp_test, good_exp_y_train, good_exp_y_test = train_test_split(good_exp, y, test_size=0.3)
+all_exp = dict()
+all_exp['good'] = get_explained_image(natural, n, expanation_type='good')
+all_exp['weak'] = get_explained_image(natural, n, expanation_type='weak')
+all_exp['adv_FGSM'] = get_explained_image(adversarial_FGSM, n, expanation_type='adversarial')
+all_exp['adv_PGD'] = get_explained_image(adversarial_PGD, n, expanation_type='adversarial')
+all_exp['adv_CW'] = get_explained_image(adversarial_CW, n, expanation_type='adversarial')
+all_exp['wrong'] = get_explained_image(natural, n, expanation_type='wrong')
 
 
-# Do not enter adversarial to train! auc for each attack
-X_train = np.concatenate((wrong_exp, weak_exp, good_exp_train))
-y_train = np.array([1]*(wrong_exp.shape[0]+weak_exp.shape[0])+[0]*good_exp_train.shape[0])
-
-X_test_FGSM = np.concatenate((adv_FGSM_exp,good_exp_test))
-y_test_FGSM =np.array([1]*adv_FGSM_exp.shape[0]+[0]*good_exp_test.shape[0])
-
-X_test_PGD = np.concatenate((adv_PGD_exp,good_exp_test))
-y_test_PGD =np.array([1]*adv_PGD_exp.shape[0]+[0]*good_exp_test.shape[0])
-
-X_test_CW = np.concatenate((adv_CW_exp,good_exp_test))
-y_test_CW =np.array([1]*adv_CW_exp.shape[0]+[0]*good_exp_test.shape[0])
-
-# change CWH -> WHC - for keras
-X_train = np.transpose(X_train, (0, 2, 3, 1))
-X_test_FGSM = np.transpose(X_test_FGSM, (0, 2, 3, 1))
-X_test_PGD = np.transpose(X_test_PGD, (0, 2, 3, 1))
-X_test_CW = np.transpose(X_test_CW, (0, 2, 3, 1))
-
-model = get_keras_model(X_train)
-
-auc_FGSM, history_FGSM = train_and_predict(model, X_train, y_train, X_test_FGSM, y_test_FGSM, filename='FGSM')
+data = explanation2train_test(all_exp, mode='all_adv_in_test')
+model = get_keras_model(data['X_train'])
+auc_FGSM, history_FGSM = train_and_predict(model, data['X_train'], data['y_train'],
+                                           data['X_test_FGSM'], data['y_test_FGSM'], filename='FGSM')
 print('FGSM auc: %0.2f' %auc_FGSM)
-auc_PGD, history_PGD = train_and_predict(model, X_train, y_train, X_test_PGD, y_test_PGD, filename='PGD')
+auc_PGD, history_PGD = train_and_predict(model, data['X_train'], data['y_train'],
+                                         data['X_test_PGD'], data['y_test_PGD'], filename='PGD')
 print('PGD auc: %0.2f' %auc_PGD)
-auc_CW, history_CW = train_and_predict(model, X_train, y_train, X_test_CW, y_test_CW, filename='CW')
+auc_CW, history_CW = train_and_predict(model, data['X_train'], data['y_train'],
+                                       data['X_test_CW'], data['y_test_CW'], filename='CW')
 print('CW auc: %0.2f' %auc_CW)
 
+for attack in ['FGSM','PGD','CW']:
+    data = explanation2train_test(all_exp, mode='leave_%s_out' %attack)
+    model = get_keras_model(data['X_train'])
+    attack_auc, attack_history = train_and_predict(model, data['X_train'], data['y_train'],
+                                               data['X_test_%s' %attack], data['y_test_%s' %attack],
+                                                   filename='leave_%s_out' %attack)
+    print('$s auc: %0.2f' %(attack, attack_auc))
 
-
+data = explanation2train_test(all_exp, mode='split_all')
+model = get_keras_model(data['X_train'])
+split_all_auc, split_all_history = train_and_predict(model, data['X_train'], data['y_train'],
+                                           data['X_test'], data['y_test'],
+                                               filename='split_all')
+print('split all auc: %0.2f' %(split_all_auc))
