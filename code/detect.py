@@ -138,8 +138,11 @@ X_test_CW = np.transpose(X_test_CW, (0, 2, 3, 1))
 model = get_keras_model(X_train)
 
 auc_FGSM, history_FGSM = train_and_predict(model, X_train, y_train, X_test_FGSM, y_test_FGSM, filename='FGSM')
+print('FGSM auc: %0.2f' %auc_FGSM)
 auc_PGD, history_PGD = train_and_predict(model, X_train, y_train, X_test_PGD, y_test_PGD, filename='PGD')
+print('PGD auc: %0.2f' %auc_PGD)
 auc_CW, history_CW = train_and_predict(model, X_train, y_train, X_test_CW, y_test_CW, filename='CW')
+print('CW auc: %0.2f' %auc_CW)
 
 
 
