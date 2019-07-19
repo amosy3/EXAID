@@ -231,7 +231,7 @@ for attack in ['FGSM','PGD','CW']:
     attack_auc, attack_history = train_and_predict(model, data['X_train'], data['y_train'],
                                                data['X_test_%s' %attack], data['y_test_%s' %attack],
                                                    filename='leave_%s_out' %attack)
-    print('$s auc: %0.2f' %(attack, attack_auc))
+    print('%s auc: %0.2f' %(attack, attack_auc))
 
 data = explanation2train_test(all_exp, mode='split_all')
 model = get_keras_model(data['X_train'])
