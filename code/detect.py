@@ -32,7 +32,7 @@ def load_data(dataset,model):
     return natural, adversarial_FGSM, adversarial_PGD, adversarial_CW
 
 
-def get_explained_image(data, n, explanation_type):
+def get_explained_image(data, n, explanation_type='good'):
     if explanation_type == 'good':  # data == natural_correctly classified
         ind = (data['label'] == n) & (data['net_pred'] == n)  # good explanation = label and pred sync.
 
@@ -94,7 +94,8 @@ def plot_roc(y_test, pred, filename='tmp'):
 
 def train_and_predict(model, X_train, y_train, X_test, y_test, filename='tmp'):
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=1500, class_weight='auto')
+    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=150,
+                        class_weight='auto', verbose=0)
     pred = model.predict(X_test)
     return plot_roc(y_test, pred, filename), history
 
@@ -204,12 +205,12 @@ natural, adversarial_FGSM, adversarial_PGD, adversarial_CW = load_data(args.data
 n = 4
 
 all_exp = dict()
-all_exp['good'] = get_explained_image(natural, n, expanation_type='good')
-all_exp['weak'] = get_explained_image(natural, n, expanation_type='weak')
-all_exp['adv_FGSM'] = get_explained_image(adversarial_FGSM, n, expanation_type='adversarial')
-all_exp['adv_PGD'] = get_explained_image(adversarial_PGD, n, expanation_type='adversarial')
-all_exp['adv_CW'] = get_explained_image(adversarial_CW, n, expanation_type='adversarial')
-all_exp['wrong'] = get_explained_image(natural, n, expanation_type='wrong')
+all_exp['good'] = get_explained_image(natural, n, explanation_type='good')
+all_exp['weak'] = get_explained_image(natural, n, explanation_type='weak')
+all_exp['adv_FGSM'] = get_explained_image(adversarial_FGSM, n, explanation_type='adversarial')
+all_exp['adv_PGD'] = get_explained_image(adversarial_PGD, n, explanation_type='adversarial')
+all_exp['adv_CW'] = get_explained_image(adversarial_CW, n, explanation_type='adversarial')
+all_exp['wrong'] = get_explained_image(natural, n, explanation_type='wrong')
 
 
 data = explanation2train_test(all_exp, mode='all_adv_in_test')
