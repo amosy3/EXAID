@@ -94,7 +94,7 @@ def plot_roc(y_test, pred, filename='tmp'):
 
 def train_and_predict(model, X_train, y_train, X_test, y_test, filename='tmp'):
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=100,
+    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3000,
                         class_weight='auto', verbose=0)
     pred = model.predict(X_test)
     return plot_roc(y_test, pred, filename), history
@@ -222,16 +222,16 @@ for n in range(10):
     model = get_keras_model(data['X_train'])
     auc_FGSM, history_FGSM = train_and_predict(model, data['X_train'], data['y_train'],
                                                data['X_test_FGSM'], data['y_test_FGSM'], filename='FGSM')
-    print('FGSM auc: %0.4f' %auc_FGSM)
-    unsup_scores['FGSM'].append(auc_FGSM)
+    print('Blind FGSM auc: %0.4f' %auc_FGSM)
+    unsup_scores['FGSM'].append(np.round(auc_FGSM,4))
     auc_PGD, history_PGD = train_and_predict(model, data['X_train'], data['y_train'],
                                              data['X_test_PGD'], data['y_test_PGD'], filename='PGD')
-    print('PGD auc: %0.4f' %auc_PGD)
-    unsup_scores['PGD'].append(auc_PGD)
+    print('Blind PGD auc: %0.4f' %auc_PGD)
+    unsup_scores['PGD'].append(np.round(auc_PGD,4))
     auc_CW, history_CW = train_and_predict(model, data['X_train'], data['y_train'],
                                            data['X_test_CW'], data['y_test_CW'], filename='CW')
-    print('CW auc: %0.4f' %auc_CW)
-    unsup_scores['CW'].append(auc_CW)
+    print('Blind CW auc: %0.4f' %auc_CW)
+    unsup_scores['CW'].append(np.round(auc_CW,4))
 
     for attack in ['FGSM','PGD','CW']:
         data = explanation2train_test(all_exp, mode='leave_%s_out' %attack)
@@ -240,10 +240,13 @@ for n in range(10):
                                                    data['X_test_%s' %attack], data['y_test_%s' %attack],
                                                        filename='leave_%s_out' %attack)
         print('%s auc: %0.4f' %(attack, attack_auc))
-        sup_scores[attack].append(attack_auc)
+        sup_scores[attack].append(np.round(attack_auc,4))
+print('============ Final Results ============')
+print('Auc score without train on adversarial examples at all')
 for k,v in unsup_scores.items():
     print(k,v,np.mean(v))
 
+print('\nAuc score without train on specific attack')
 for k, v in sup_scores.items():
     print(k, v, np.mean(v))
     # data = explanation2train_test(all_exp, mode='split_all')

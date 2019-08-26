@@ -50,18 +50,18 @@ def get_pretrain_model(model_name):
     return net.module
 
 
-def get_adversary(adversary_name, net):
-    if adversary_name == 'FGSM':
-        adversary = FGSM(net, targeted=False)
+def get_adversary(args, net):
+    if args.attack == 'FGSM':
+        adversary = FGSM(net, eps=args.attack_eps, targeted=False)
 
-    if adversary_name == 'JSMA':
+    if args.attack == 'JSMA':
         adversary = JSMA(net, num_classes=10)
 
-    if adversary_name == 'PGD':
-        adversary = PGDAttack(net, targeted=False)
+    if args.attack == 'PGD':
+        adversary = PGDAttack(net, eps=args.attack_eps, targeted=False)
 
-    if adversary_name == 'CW':
-        adversary = CarliniWagnerL2Attack(net, targeted=False, num_classes=10)
+    if args.attack == 'CW':
+        adversary = CarliniWagnerL2Attack(net, initial_const=args.attack_eps, targeted=False, num_classes=10)
 
     return adversary
 
@@ -92,6 +92,7 @@ def get_parsed_args():
     parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10'], type=str, help='dataset')
     parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
     parser.add_argument('attack', action='store',choices=['FGSM', 'JSMA', 'PGD', 'CW'], type=str, help='attack')
+    parser.add_argument('attack_eps', action='store', type=float, help='FGSM/PGD step size, or CW l2 weight in loss')
     args = parser.parse_args()
     return args
 
@@ -99,7 +100,7 @@ def get_parsed_args():
 args = get_parsed_args()
 testloader = get_test_loader(args.dataset)
 net = get_pretrain_model(args.model)
-adversary = get_adversary(args.attack, net)
+adversary = get_adversary(args, net)
 
 print_net_score(net, testloader)  # ensure the net loaded as expected
 
@@ -127,5 +128,5 @@ for data in tqdm(testloader):
 
 adversarial_path = '../adversarial/%s/%s/' %(args.dataset, args.model)
 create_dir_if_not_exist(adversarial_path)
-with open(adversarial_path + args.attack + '.pkl', 'wb') as f:
+with open(adversarial_path + args.attack + '_' + str(args.attack_eps) + '.pkl', 'wb') as f:
     pickle.dump(adversarial,f)
