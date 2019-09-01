@@ -22,7 +22,7 @@ def get_parsed_args():
                                                  'and attack to explain')
     parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10'], type=str, help='dataset')
     parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
-    parser.add_argument('attack', action='store',choices=['FGSM', 'JSMA', 'PGD', 'CW'], type=str, help='attack')
+    parser.add_argument('attack', action='store', type=str, help='attack')
     args = parser.parse_args()
     return args
 

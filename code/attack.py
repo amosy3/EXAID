@@ -29,7 +29,7 @@ def get_test_loader(dataset):
     if dataset == 'CIFAR10':
         transform = transforms.Compose([transforms.ToTensor()])
         testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=32, shuffle=False, num_workers=20)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False, num_workers=20)
         # classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         return testloader
     print('Testloader error!')
@@ -105,10 +105,10 @@ adversary = get_adversary(args, net)
 print_net_score(net, testloader)  # ensure the net loaded as expected
 
 adversarial= dict()
-adversarial['X'] = np.empty(shape=(0,3,32,32))
+adversarial['X'] = np.empty(shape=(0, 3, 32, 32))
 adversarial['label'] = np.array(())
 adversarial['net_pred'] = np.array(())
-adversarial['softmax_layer'] = np.empty(shape=(0,10))
+adversarial['softmax_layer'] = np.empty(shape=(0, 10))
 
 for data in tqdm(testloader):
     images, labels = data
