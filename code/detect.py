@@ -1,6 +1,7 @@
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pickle
+from collections import defaultdict
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 import argparse
@@ -203,7 +204,6 @@ args = get_parsed_args()
 natural, adversarial_FGSM, adversarial_PGD, adversarial_CW = load_data(args.dataset,args.model)
 
 n = 3#4
-from collections import defaultdict
 unsup_scores = defaultdict(list)
 sup_scores = defaultdict(list)
 
@@ -241,6 +241,7 @@ for n in range(10):
                                                        filename='leave_%s_out' %attack)
         print('%s auc: %0.4f' %(attack, attack_auc))
         sup_scores[attack].append(np.round(attack_auc,4))
+
 print('============ Final Results ============')
 print('Auc score without train on adversarial examples at all')
 for k,v in unsup_scores.items():
@@ -249,9 +250,11 @@ for k,v in unsup_scores.items():
 print('\nAuc score without train on specific attack')
 for k, v in sup_scores.items():
     print(k, v, np.mean(v))
-    # data = explanation2train_test(all_exp, mode='split_all')
-    # model = get_keras_model(data['X_train'])
-    # split_all_auc, split_all_history = train_and_predict(model, data['X_train'], data['y_train'],
-    #                                            data['X_test'], data['y_test'],
-    #                                                filename='split_all')
-    # print('split all auc: %0.4f' %(split_all_auc))
+
+
+# data = explanation2train_test(all_exp, mode='split_all')
+# model = get_keras_model(data['X_train'])
+# split_all_auc, split_all_history = train_and_predict(model, data['X_train'], data['y_train'],
+#                                            data['X_test'], data['y_test'],
+#                                                filename='split_all')
+# print('split all auc: %0.4f' %(split_all_auc))

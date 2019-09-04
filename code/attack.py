@@ -29,7 +29,7 @@ def get_test_loader(dataset):
     if dataset == 'CIFAR10':
         transform = transforms.Compose([transforms.ToTensor()])
         testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False, num_workers=20)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=200, shuffle=False, num_workers=20)
         # classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         return testloader
     print('Testloader error!')
@@ -126,7 +126,7 @@ for data in tqdm(testloader):
     adversarial['softmax_layer'] = np.concatenate((adversarial['softmax_layer'], softmax_layer[wrong].detach().cpu()))
     
 
-adversarial_path = '../adversarial/%s/%s/' %(args.dataset, args.model)
-create_dir_if_not_exist(adversarial_path)
-with open(adversarial_path + args.attack + '_' + str(args.attack_eps) + '.pkl', 'wb') as f:
-    pickle.dump(adversarial,f)
+    adversarial_path = '../adversarial/%s/%s/' %(args.dataset, args.model)
+    create_dir_if_not_exist(adversarial_path)
+    with open(adversarial_path + args.attack + '_' + str(args.attack_eps) + '.pkl', 'wb') as f:
+        pickle.dump(adversarial,f)
