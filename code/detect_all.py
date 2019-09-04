@@ -1,4 +1,5 @@
 from sklearn.model_selection import train_test_split
+# from keras.callbacks import ModelCheckpoint
 import numpy as np
 import pickle
 from collections import defaultdict
@@ -14,7 +15,7 @@ def get_parsed_args():
     parser.add_argument('dataset', action='store', choices=['MNIST','CIFAR10'], type=str, help='dataset')
     parser.add_argument('model', action='store', choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
     parser.add_argument('adv_to_detect', action='store', type=str, help='which attack to use as test data')
-    parser.add_argument('adv_to_train', action='store', type=str, choices=['None', 'FGSM1', 'FGSM03'],
+    parser.add_argument('adv_to_train', action='store', type=str, choices=['None', 'FGSM_0.1', 'FGSM_0.03'],
                         help='let the detector see example for attack')
     args = parser.parse_args()
     return args
@@ -91,7 +92,7 @@ def plot_roc(y_test, pred, filename='tmp'):
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic example')
+    plt.title(filename.split('/')[-1])
     plt.legend(loc="lower right")
     plt.savefig(filename+'.png')
     return roc_auc
@@ -99,7 +100,7 @@ def plot_roc(y_test, pred, filename='tmp'):
 
 def train_and_predict(model, X_train, y_train, X_test, y_test, filename='tmp'):
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3000,
+    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3,
                         class_weight='auto', verbose=0)
     pred = model.predict(X_test)
     return plot_roc(y_test, pred, filename), history
@@ -153,20 +154,19 @@ def extract_all_exp(natural, adv_to_detect, adv_to_train, n):
 
 
 args = get_parsed_args()
-natural, adv_to_train, adv_to_detect = load_data(args.dataset,args.model)
+natural, adv_to_train, adv_to_detect = load_data(args)
 
 scores = []
-print('Train-%s Test-%s' %(args.adv_to_detect, args.adv_to_attack))
+print('Train-%s Test-%s' %(args.adv_to_detect, args.adv_to_train))
 for n in range(10):
-    print('======================== %d ========================' %n)
-
     all_exp = extract_all_exp(natural, adv_to_detect, adv_to_train, n)
     data = explanation2train_test(all_exp, adv_to_train)
     model = get_keras_model(data['X_train'])
 
-    auc, history = train_and_predict(model, data['X_train'], data['y_train'], data['X_test'], data['y_test'],
-                                               filename='Train-%s Test-%s'%(args.adv_to_detect,args.adv_to_attack))
-    scores.append(np.round(auc,4))
-    print('%d auc: %0.4f'%(n, auc))
+    model_auc, history = train_and_predict(model, data['X_train'], data['y_train'], data['X_test'], data['y_test'],
+                                    filename='logs/figures/Train-%s Test-%s on %d'
+                                             % (args.adv_to_detect,args.adv_to_train, n))
+    scores.append(np.round(model_auc,4))
+    print('%d auc: %0.4f'%(n, model_auc))
 
 print('Final auc= %0.4f' %np.mean(scores))
