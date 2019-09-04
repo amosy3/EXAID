@@ -4,6 +4,8 @@ import numpy as np
 import pickle
 from collections import defaultdict
 from sklearn.metrics import roc_curve, auc
+import tensorflow as tf
+from keras import backend as K
 import matplotlib.pyplot as plt
 import argparse
 
@@ -99,11 +101,30 @@ def plot_roc(y_test, pred, filename='tmp'):
 
 
 def train_and_predict(model, X_train, y_train, X_test, y_test, filename='tmp'):
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3,
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy', kauc])
+    history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3000,
                         class_weight='auto', verbose=0)
     pred = model.predict(X_test)
+    save_history(history, filename)
     return plot_roc(y_test, pred, filename), history
+
+
+def save_history(history,filename):
+    # print(history.history)
+    plt.figure()
+    plt.plot(history.history['kauc'])
+    plt.plot(history.history['val_kauc'])
+    plt.title(filename)
+    plt.ylabel('auc')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.savefig(filename + '_history.png')
+
+
+def kauc(y_true, y_pred):
+    kauc = tf.metrics.auc(y_true, y_pred)[1]
+    K.get_session().run(tf.local_variables_initializer())
+    return kauc
 
 
 def explanation2train_test(all_exp, adv_to_train, channels_convection='WHC'):
@@ -164,7 +185,7 @@ for n in range(10):
     model = get_keras_model(data['X_train'])
 
     model_auc, history = train_and_predict(model, data['X_train'], data['y_train'], data['X_test'], data['y_test'],
-                                    filename='logs/figures/Train-%s Test-%s on %d'
+                                    filename='logs/figures/Train-%s_Test-%s_on_%d'
                                              % (args.adv_to_detect,args.adv_to_train, n))
     scores.append(np.round(model_auc,4))
     print('%d auc: %0.4f'%(n, model_auc))
