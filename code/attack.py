@@ -29,7 +29,7 @@ def get_test_loader(dataset):
     if dataset == 'CIFAR10':
         transform = transforms.Compose([transforms.ToTensor()])
         testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=200, shuffle=False, num_workers=20)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=20)
         # classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         return testloader
     print('Testloader error!')

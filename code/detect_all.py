@@ -7,6 +7,7 @@ from sklearn.metrics import roc_curve, auc
 import tensorflow as tf
 from keras import backend as K
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 import argparse
 
 
@@ -178,8 +179,8 @@ args = get_parsed_args()
 natural, adv_to_train, adv_to_detect = load_data(args)
 
 scores = []
-print('Train-%s Test-%s' %(args.adv_to_detect, args.adv_to_train))
-for n in range(10):
+print('Train-%s Test-%s' %(args.adv_to_train, args.adv_to_detect))
+for n in tqdm(range(10)):
     all_exp = extract_all_exp(natural, adv_to_detect, adv_to_train, n)
     data = explanation2train_test(all_exp, adv_to_train)
     model = get_keras_model(data['X_train'])
