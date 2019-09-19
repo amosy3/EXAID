@@ -2,6 +2,7 @@ import torch, torchvision
 from torchvision import datasets, transforms
 import os
 import argparse
+from models import mahalanobis_resnet as mres
 from torch import nn, optim
 from torch.nn import functional as F
 from tqdm import tqdm
@@ -20,7 +21,7 @@ def get_parsed_args():
     parser = argparse.ArgumentParser(description='This script creates explanations for net predictions based on shap. '
                                                  'Please choose dataset for natural samples, model, '
                                                  'and attack to explain')
-    parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10'], type=str, help='dataset')
+    parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10', 'SVHN'], type=str, help='dataset')
     parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
     parser.add_argument('attack', action='store', type=str, help='attack')
     args = parser.parse_args()
@@ -39,10 +40,19 @@ def get_loaders(dataset):
         testloader = torch.utils.data.DataLoader(testset, batch_size=32, shuffle=False, num_workers=20)
         # classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         return trainloader, testloader
+
+    if dataset == 'SVHN':
+        transform = transforms.Compose([transforms.ToTensor()])
+        trainset = torchvision.datasets.SVHN(root='./data', split='train', download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=False, num_workers=20)
+        testset = torchvision.datasets.SVHN(root='./data', split='test', download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=20)
+        return trainloader, testloader
     print('loaders error!')
 
 
-def get_pretrain_model(model_name):
+def get_pretrain_model(args):
+    model_name = args.model
     if model_name == 'vgg':
         model_path = '../models/vgg_acc_85.pkl'
 
@@ -50,7 +60,14 @@ def get_pretrain_model(model_name):
         model_path = '../models/googlenet_acc_84.pkl'
 
     if model_name == 'resnet':
-        model_path = '../models/resnetxt_acc_87.pkl'
+        if args.dataset == 'CIFAR10':
+            model_path = '../models/resnetxt_acc_87.pkl'
+
+        if args.dataset == 'SVHN':
+            net = mres.ResNet34(num_c=10)
+            net.load_state_dict(torch.load('../models/resnet_svhn.pth'))
+            net = net.to('cuda')
+            return net
 
     with open(model_path, 'rb') as f:
         net = pickle.load(f)
@@ -107,7 +124,7 @@ def create_natural_explanations(trainloader, e, dataset, model):
     if dataset == 'MNIST':
         natural['X'] = np.empty(shape=(0, 1, 28, 28))
         natural['shap'] = np.empty(shape=(0, 10, 1, 28, 28))
-    if dataset == 'CIFAR10':
+    if dataset == 'CIFAR10' or dataset == 'SVHN':
         natural['X'] = np.empty(shape=(0, 3, 32, 32))
         natural['shap'] = np.empty(shape=(0, 10, 3, 32, 32))
     natural['label'] = np.array(())
@@ -126,17 +143,21 @@ def create_natural_explanations(trainloader, e, dataset, model):
         natural['net_pred'] = np.concatenate((natural['net_pred'], estimate_class.cpu()))
         natural['softmax_layer'] = np.concatenate((natural['softmax_layer'], softmax_layer.detach().cpu()))
         natural['shap'] = np.concatenate((natural['shap'], shap_vaules))
-    with open('../explanations/%s/%s/natural.pkl' % (dataset, model), 'wb') as f:
-        pickle.dump(natural, f)
+        with open('../explanations/%s/%s/natural2.pkl' % (dataset, model), 'wb') as f:
+            pickle.dump(natural, f)
+
+        if natural['X'].shape[0] > 9000:
+            print('You got 9000 natural examples - that should do the job...')
+            break
 
 args = get_parsed_args()
 trainloader, testloader = get_loaders(args.dataset)
-net = get_pretrain_model(args.model)
+net = get_pretrain_model(args)
 adversarial = get_adversarial(args.dataset,args.model,args.attack)
 print_net_score(net, testloader)  # ensure the net loaded as expected
 e = get_deep_explainer(trainloader, net)
-create_adversarial_explanations(adversarial, e, args.dataset,args.model,args.attack)
+# create_adversarial_explanations(adversarial, e, args.dataset,args.model,args.attack)
 print('Done explain adversarial examples!')
 
-if not os.path.exists('../explanations/%s/%s/natural.pkl' % (args.dataset, args.model)):
+if not os.path.exists('../explanations/%s/%s/natural2.pkl' % (args.dataset, args.model)):
     create_natural_explanations(testloader, e, args.dataset, args.model)

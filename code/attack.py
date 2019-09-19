@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from tqdm import tqdm
+from models import mahalanobis_resnet as mres
 from advertorch.utils import predict_from_logits
 from advertorch_examples.utils import get_mnist_test_loader
 from advertorch_examples.utils import _imshow
@@ -32,10 +33,17 @@ def get_test_loader(dataset):
         testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=20)
         # classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
         return testloader
+
+    if dataset == 'SVHN':
+        transform = transforms.Compose([transforms.ToTensor()])
+        testset = torchvision.datasets.SVHN(root='./data', split='test', download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=20)
+        return testloader
     print('Testloader error!')
 
 
-def get_pretrain_model(model_name):
+def get_pretrain_model(args):
+    model_name = args.model
     if model_name == 'vgg':
         model_path = '../models/vgg_acc_85.pkl'
 
@@ -43,7 +51,14 @@ def get_pretrain_model(model_name):
         model_path = '../models/googlenet_acc_84.pkl'
 
     if model_name == 'resnet':
-        model_path = '../models/resnetxt_acc_87.pkl'
+        if args.dataset == 'CIFAR10':
+            model_path = '../models/resnetxt_acc_87.pkl'
+
+        if args.dataset == 'SVHN':
+            net = mres.ResNet34(num_c=10)
+            net.load_state_dict(torch.load('../models/resnet_svhn.pth'))
+            net = net.to('cuda')
+            return net
 
     with open(model_path, 'rb') as f:
         net = pickle.load(f)
@@ -89,7 +104,7 @@ def print_net_score(net, testloader):
 def get_parsed_args():
     parser = argparse.ArgumentParser(description='This script create adversarial examples. '
                                                  'Please choose dataset, model, and attack to apply')
-    parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10'], type=str, help='dataset')
+    parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10', 'SVHN'], type=str, help='dataset')
     parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
     parser.add_argument('attack', action='store',choices=['FGSM', 'JSMA', 'PGD', 'CW'], type=str, help='attack')
     parser.add_argument('attack_eps', action='store', type=float, help='FGSM/PGD step size, or CW l2 weight in loss')
@@ -99,7 +114,7 @@ def get_parsed_args():
 
 args = get_parsed_args()
 testloader = get_test_loader(args.dataset)
-net = get_pretrain_model(args.model)
+net = get_pretrain_model(args)
 adversary = get_adversary(args, net)
 
 print_net_score(net, testloader)  # ensure the net loaded as expected
@@ -130,3 +145,7 @@ for data in tqdm(testloader):
     create_dir_if_not_exist(adversarial_path)
     with open(adversarial_path + args.attack + '_' + str(args.attack_eps) + '.pkl', 'wb') as f:
         pickle.dump(adversarial,f)
+
+    if adversarial['X'].shape[0]>5000:
+        print('You got 5000 adversarial examples - that should do the job...')
+        break

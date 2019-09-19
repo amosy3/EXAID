@@ -1,9 +1,9 @@
 from sklearn.model_selection import train_test_split
-# from keras.callbacks import ModelCheckpoint
 import numpy as np
 import pickle
 from collections import defaultdict
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from keras.models import load_model
 import tensorflow as tf
 from keras import backend as K
 import matplotlib.pyplot as plt
@@ -11,34 +11,16 @@ from tqdm import tqdm
 import argparse
 
 
-def get_parsed_args():
-    parser = argparse.ArgumentParser(description='This script creates explanations for net predictions based on shap. '
-                                                 'Please choose dataset for natural samples, model, '
-                                                 'and attack to explain')
-    parser.add_argument('dataset', action='store', choices=['MNIST','CIFAR10', 'SVHN'], type=str, help='dataset')
-    parser.add_argument('model', action='store', choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
-    parser.add_argument('adv_to_detect', action='store', type=str, help='which attack to use as test data')
-    parser.add_argument('adv_to_train', action='store', type=str, choices=['None', 'FGSM_0.1', 'FGSM_0.03'],
-                        help='let the detector see example for attack')
-    args = parser.parse_args()
-    return args
-
-
-def load_data(args):
+def load_data(args,attack_to_detect):
 
     with open('../explanations/%s/%s/natural.pkl' %(args.dataset,args.model), 'rb') as f:
         natural = pickle.load(f)
 
-    with open('../explanations/%s/%s/%s.pkl' %(args.dataset,args.model,args.adv_to_detect), 'rb') as f:
+    with open('../explanations/%s/%s/%s.pkl' %(args.dataset, args.model, attack_to_detect), 'rb') as f:
         adv_to_detect = pickle.load(f)
 
-    if args.adv_to_train == 'None':
-        return natural, None, adv_to_detect
+    return natural, None, adv_to_detect
 
-    with open('../explanations/%s/%s/%s.pkl' %(args.dataset,args.model,args.adv_to_train), 'rb') as f:
-        adv_to_train = pickle.load(f)
-
-    return natural, adv_to_train, adv_to_detect
 
 
 def get_explained_image(data, n, explanation_type='good'):
@@ -174,21 +156,55 @@ def extract_all_exp(natural, adv_to_detect, adv_to_train, n):
 
     return all_exp
 
+
+
+def get_parsed_args():
+    parser = argparse.ArgumentParser(description='This script detect adversarial examples with saved models')
+    parser.add_argument('dataset', action='store',choices=['MNIST','CIFAR10', 'SVHN'], type=str, help='dataset')
+    parser.add_argument('model', action='store',choices=['resnet', 'vgg', 'googlenet'], type=str, help='model')
+    parser.add_argument('load_pretained_on', action='store',choices=['FGSM_0.1', 'None'], type=str, help='pretrain')
+    args = parser.parse_args()
+    return args
+
+
 args = get_parsed_args()
-natural, adv_to_train, adv_to_detect = load_data(args)
 
-scores = []
-print('Train-%s Test-%s' %(args.adv_to_train, args.adv_to_detect))
-for n in tqdm(range(10)):
-    all_exp = extract_all_exp(natural, adv_to_detect, adv_to_train, n)
-    data = explanation2train_test(all_exp, adv_to_train)
-    model = get_keras_model(data['X_train'])
+# args = dict()
+# args['dataset'] = 'SVHN'  # ['MNIST','CIFAR10', 'SVHN']
+# args['model'] = 'resnet'
+# # args['adv_to_detect'] = 'CW_0.0001' #CW:[0.01,0.003,0.001,0.0003,0.0001]. FGSM [0.3,0.1,0.03,0.01,0.003,0.001,0.0003]
+# args['adv_to_train'] = 'None'  # ['None', 'FGSM_0.1', 'FGSM_0.03']
 
-    model_auc, history = train_and_predict(model, data['X_train'], data['y_train'], data['X_test'], data['y_test'],
-                                    filename='logs/figures/Train-%s_Test-%s_on_%d'
-                                             % (args.adv_to_detect,args.adv_to_train, n))
-    model.save('../xai_models/%s/%s/%s_%s_%0.4f.h5'%(args.dataset,args.model,args.adv_to_train,n,model_auc))
-    scores.append(np.round(model_auc,4))
-    print('%d auc: %0.4f'%(n, model_auc))
+for attack in ['FGSM', 'PGD']:
+    print(attack)
+    for e in tqdm([0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003]):
+        attack_to_detect = '%s_%s' % (attack, e)
+        natural, adv_to_train, adv_to_detect = load_data(args, attack_to_detect)
+        scores = []
+        for n in (range(10)):
+            all_exp = extract_all_exp(natural, adv_to_detect, adv_to_train, n)
+            data = explanation2train_test(all_exp, adv_to_train)
+            model = load_model(
+                '../xai_models/%s/%s/%s_%s.h5' % (args.dataset, args.model, args.load_pretained_on, n),
+                custom_objects={'kauc': kauc})
+            pred = model.predict(data['X_test'])
+            model_auc = roc_auc_score(data['y_test'], pred)
 
-print('Final auc= %0.4f' %np.mean(scores))
+            scores.append(np.round(model_auc, 4))
+        print('%s auc= %0.4f' % (attack_to_detect, np.mean(scores)))
+
+print('CW')
+for e in tqdm([0.01, 0.003, 0.001, 0.0003, 0.0001]):
+    attack_to_detect = 'CW_%s' %e
+    natural, adv_to_train, adv_to_detect = load_data(args, attack_to_detect)
+    scores = []
+    for n in (range(10)):
+        all_exp = extract_all_exp(natural, adv_to_detect, adv_to_train, n)
+        data = explanation2train_test(all_exp, adv_to_train)
+        model = load_model('../xai_models/%s/%s/%s_%s.h5' % (args.dataset, args.model, args.load_pretained_on, n),
+                           custom_objects={'kauc': kauc})
+        pred = model.predict(data['X_test'])
+        model_auc = roc_auc_score(data['y_test'], pred)
+
+        scores.append(np.round(model_auc, 4))
+    print('%s auc= %0.4f' % (attack_to_detect, np.mean(scores)))
