@@ -178,7 +178,10 @@ def numpy2torch(x):
 def detect(data, q1=128, q2=64, q3=43, en1=4, en2=1):
     detection_pred = []
     for image in data:
-        raw_pred = torch.argmax(model(numpy2torch(image)), dim=1)
+        pred = model(numpy2torch(image))
+        raw_pred_class = torch.argmax(pred, dim=1).item()
+        raw_prob_pred = torch.max(torch.softmax(pred, dim=1)).item()
+        # raw_pred = torch.argmax(model(numpy2torch(image)), dim=1)
         ori_entropy = oneDEntropy(image)
         #         print(ori_entropy)
         #         image = np.transpose(image,(1,2,0))
@@ -193,12 +196,15 @@ def detect(data, q1=128, q2=64, q3=43, en1=4, en2=1):
             fqimage = crossMeanFilterOperations(qimage, 3, 29, 13)
             ppimage = chooseCloserFilter(image, qimage, fqimage)
 
-        pp_pred = torch.argmax(model(numpy2torch(ppimage)), dim=1)
-
-        if raw_pred == pp_pred:
-            detection_pred.append(0)
-        else:
-            detection_pred.append(1)
+        post_pred = model(numpy2torch(ppimage))
+        post_prob_pred = (torch.softmax(post_pred, dim=1)[0][raw_pred_class]).item()
+        detection_pred.append(raw_prob_pred - post_prob_pred)
+        # pp_pred = torch.argmax(model(numpy2torch(ppimage)), dim=1)
+        #
+        # if raw_pred == pp_pred:
+        #     detection_pred.append(0)
+        # else:
+        #     detection_pred.append(1)
 
     return detection_pred
 
@@ -216,7 +222,7 @@ for data in (testloader):
     images, labels = data
     natural = np.concatenate((natural, images))
 natural_train = natural[:args.nsamples2hpo]
-natural_test = natural[args.nsamples2hpo:]
+natural_test = natural[args.nsamples2hpo:(2*args.nsamples2hpo)]
 
 
 # detect_natural = []
@@ -245,31 +251,39 @@ space = {
 
 best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=args.hpo_steps)
 
-nval = 5*args.nsamples2hpo
+nval = 1*args.nsamples2hpo
 
-print('FGSM')
-for e in [0.3,0.1,0.03,0.01,0.003,0.001,0.0003]:
-    with open('../adversarial/%s/%s/FGSM_%s.pkl' %(args.dataset, args.model,e), 'rb') as f:
-        adversarial = pickle.load(f)
-    X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
-    y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
-    detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
-    print(e,roc_auc_score(y,detect_pred))
+# print('FGSM')
+# for e in [0.3,0.1,0.03,0.01,0.003,0.001,0.0003]:
+#     with open('../adversarial/%s/%s/FGSM_%s.pkl' %(args.dataset, args.model,e), 'rb') as f:
+#         adversarial = pickle.load(f)
+#     X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
+#     y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
+#     detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
+#     print(e,roc_auc_score(y,detect_pred))
+#
+# print('PGD')
+# for e in [0.3,0.1,0.03,0.01,0.003,0.001,0.0003]:
+#     with open('../adversarial/%s/%s/PGD_%s.pkl' %(args.dataset, args.model,e), 'rb') as f:
+#         adversarial = pickle.load(f)
+#     X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
+#     y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
+#     detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
+#     print(e,roc_auc_score(y,detect_pred))
+#
+# print('CW')
+# for e in [0.01,0.003,0.001,0.0003,0.0001]:
+#     with open('../adversarial/%s/%s/CW_%s.pkl' %(args.dataset, args.model,e), 'rb') as f:
+#         adversarial = pickle.load(f)
+#     X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
+#     y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
+#     detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
+#     print(e,roc_auc_score(y,detect_pred))
 
-print('PGD')
-for e in [0.3,0.1,0.03,0.01,0.003,0.001,0.0003]:
-    with open('../adversarial/%s/%s/PGD_%s.pkl' %(args.dataset, args.model,e), 'rb') as f:
-        adversarial = pickle.load(f)
-    X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
-    y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
-    detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
-    print(e,roc_auc_score(y,detect_pred))
-
-print('CW')
-for e in [0.01,0.003,0.001,0.0003,0.0001]:
-    with open('../adversarial/%s/%s/CW_%s.pkl' %(args.dataset, args.model,e), 'rb') as f:
-        adversarial = pickle.load(f)
-    X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
-    y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
-    detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
-    print(e,roc_auc_score(y,detect_pred))
+print('Nattack')
+with open('../adversarial/%s/%s/Nattack_201.pkl' %(args.dataset, args.model), 'rb') as f:
+    adversarial = pickle.load(f)
+X = torch.tensor(np.concatenate((natural_test, adversarial['X'][:nval])))
+y = [0]*len(natural_test) + [1]*adversarial['X'][:nval].shape[0]
+detect_pred = detect(X,best['q1'],best['q2'],best['q3'],best['en1'],best['en2'])
+print(roc_auc_score(y,detect_pred))
